@@ -24,6 +24,10 @@
   header .title{font-weight:700;font-size:14px;letter-spacing:.5px}
   header .ctx{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.25}
   header .ctx b{color:var(--fg)}
+  header .help{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);
+    background:var(--panel);color:var(--muted);font:800 14px var(--sans);text-decoration:none;
+    display:flex;align-items:center;justify-content:center;line-height:1}
+  header .help:active{background:var(--accent);color:#04150c}
   .pills{display:flex;gap:6px}
   .pill{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:10px;border:1px solid var(--line);
     color:var(--muted);background:#0000}
@@ -173,6 +177,7 @@
     <span class="pill" id="pill-cmp">CMP</span>
   </div>
   <div class="ctx" id="ctx">no site<br>no station</div>
+  <a class="help" href="guide.html" target="_blank" rel="noopener" title="Field guide" aria-label="Field guide">?</a>
 </header>
 
 <main>

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0f0d">
+<title>Ghostframe — Field Guide</title>
+<style>
+  :root{
+    --bg:#0b0f0d;--panel:#121815;--line:#243029;--fg:#e8f0ea;--muted:#8ca298;
+    --accent:#3ddc84;--target:#5ec8ff;--warn:#ffb020;--bad:#ff5252;
+    --mono:ui-monospace,'Cascadia Mono','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);line-height:1.5}
+  .wrap{max-width:820px;margin:0 auto;padding:24px 20px 60px}
+  .mono{font-family:var(--mono)}
+  a{color:var(--target)}
+  header.top{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;
+    border-bottom:2px solid var(--accent);padding-bottom:14px;margin-bottom:8px}
+  header.top h1{margin:0;font-size:30px;letter-spacing:1px}
+  header.top .tag{color:var(--muted);font-size:13px;margin-top:4px}
+  header.top .url{font-family:var(--mono);font-size:13px;color:var(--accent);margin-left:auto;text-align:right}
+  .printbtn{margin:14px 0 24px;background:var(--accent);color:#04150c;border:none;border-radius:10px;
+    padding:11px 18px;font-weight:800;font-size:14px;cursor:pointer}
+  h2{font-size:16px;letter-spacing:.3px;margin:26px 0 8px;display:flex;align-items:center;gap:10px}
+  h2 .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;flex:0 0 26px;
+    border-radius:50%;background:var(--accent);color:#04150c;font-weight:900;font-size:14px}
+  h2 .once{font:600 10px var(--mono);color:var(--warn);border:1px solid var(--warn);border-radius:8px;padding:1px 6px}
+  p{margin:6px 0}
+  ul{margin:6px 0;padding-left:22px}
+  li{margin:4px 0}
+  .lead{color:var(--muted);font-size:14px;margin:2px 0 0 36px}
+  section.step{border-left:2px solid var(--line);margin-left:12px;padding-left:20px}
+  code,.k{font-family:var(--mono);background:#0e1411;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:.9em}
+  .callout{border:1px solid var(--warn);background:rgba(255,176,32,.08);border-radius:10px;padding:12px 14px;margin:24px 0}
+  .callout h3{margin:0 0 6px;color:var(--warn);font-size:14px;letter-spacing:.3px}
+  .callout.bad{border-color:var(--bad);background:rgba(255,82,82,.08)}
+  .callout.bad h3{color:var(--bad)}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top}
+  th{background:#0e1411;color:var(--muted);font-weight:700}
+  td .pill{font-family:var(--mono);font-size:11px;font-weight:800;padding:1px 7px;border-radius:9px}
+  .pill.g{background:var(--accent);color:#04150c}.pill.b{background:var(--target);color:#00131f}
+  .pill.o{background:var(--warn);color:#241800}
+  footer{margin-top:36px;border-top:1px solid var(--line);padding-top:12px;color:var(--muted);font-size:12px}
+
+  @media print{
+    :root{--bg:#fff;--panel:#fff;--line:#bbb;--fg:#111;--muted:#444;--accent:#127a3e;--target:#0a63a6;--warn:#8a5a00;--bad:#a11}
+    body{background:#fff;color:#111}
+    .wrap{max-width:none;padding:0}
+    .printbtn{display:none}
+    header.top{border-bottom:2px solid #127a3e}
+    h2 .n{background:#127a3e;color:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .callout,td .pill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    section.step{break-inside:avoid}
+    a{color:#0a63a6;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>GHOSTFRAME</h1>
+      <div class="tag">Repeat-photography field guide · LTPBR stream monitoring</div>
+    </div>
+    <div class="url">ohjoehaber.github.io/<b>ghostframe</b></div>
+  </header>
+
+  <button class="printbtn" onclick="window.print()">🖨 Print / Save as PDF</button>
+
+  <p><b>Open it:</b> load the link on your phone's browser, then <b>Share → Add to Home
+  Screen</b> so it launches like an app. The camera, compass and tilt only work over the
+  live web link — a downloaded copy of the file has dead sensors.</p>
+
+  <h2><span class="n">1</span> Start the sensors <span class="once">ONCE / SESSION</span></h2>
+  <section class="step">
+    <p>Tap <b>Start camera &amp; sensors</b>. Allow <b>camera</b>, <b>location</b>, and — on
+    iPhone — the <b>Motion &amp; Orientation</b> prompt.</p>
+    <ul>
+      <li>iOS asks the motion question <b>only once</b>. If someone taps "Don't Allow," the
+      compass and tilt stay blank until they <b>reload the page</b> and allow it.</li>
+      <li>The three pills up top — <span class="k">CAM</span> <span class="k">GPS</span>
+      <span class="k">CMP</span> — turn green when each sensor is live.</li>
+    </ul>
+  </section>
+
+  <h2><span class="n">2</span> Build your sites &amp; stations <span class="once">ONCE / POINT</span></h2>
+  <section class="step">
+    <p>On the <b>Sites</b> tab:</p>
+    <ul>
+      <li><b>New monitoring site</b> → name it, pick structure type
+      (<code>BDA</code> / <code>PALS</code> / <code>BDA+PALS</code> /
+      <code>Reference reach</code>), add the watershed (HUC or name). <b>Add site.</b></li>
+      <li><b>Add photo station</b> → choose the site, give a <b>station code</b>
+      (e.g. <code>PS-01</code>), a <b>target heading</b> in degrees (the compass bearing you
+      shoot along), and a <b>placement note</b> (rebar pin, tripod scuff, framing cue).
+      <b>Add station.</b></li>
+      <li>Each station has a <b>Use</b> button — tap it to make that station active and jump
+      to the camera.</li>
+    </ul>
+    <p class="lead">Setup lives on that phone only — set up each phone, or share the station
+    codes &amp; headings so everyone matches.</p>
+  </section>
+
+  <h2><span class="n">3</span> First visit — shoot the BASELINE</h2>
+  <section class="step">
+    <ul>
+      <li>Pick your <b>site</b> and <b>station</b> in the two dropdowns (the header confirms
+      e.g. <span class="k">PS-01 · tgt 210°</span>).</li>
+      <li>Frame with the <b>rule-of-thirds grid</b>. Rotate until the compass reading
+      (<b>HDG</b>) matches the station's <b>TGT</b>, and keep the <b>level bar green</b>
+      (within ~5° — no sideways tilt).</li>
+      <li>Tap <b>Capture BASELINE</b>. It saves the photo plus timestamp, GPS, heading and tilt.</li>
+    </ul>
+  </section>
+
+  <h2><span class="n">4</span> Return visits — line up the REPEAT</h2>
+  <section class="step">
+    <ul>
+      <li>Same site/station. Tap the <b>Baseline</b> button by the ghost slider — the old
+      baseline fades in over the live view.</li>
+      <li>Slide <b>GHOST</b> to about 50% and physically move until the live scene overlaps
+      the ghost (banks, boulders, the structure).</li>
+      <li>Level green, heading on target → tap <b>Capture REPEAT</b>.</li>
+    </ul>
+  </section>
+
+  <h2><span class="n">5</span> Review &amp; hand off the data</h2>
+  <section class="step">
+    <p>On the <b>Gallery</b> tab: filter by site or by baseline/repeat; each card shows
+    station, date, heading, tilt and GPS.</p>
+    <ul>
+      <li><b>Export CSV</b> — metadata table for the spreadsheet.</li>
+      <li><b>Export JSON</b> — full backup including sites &amp; stations.</li>
+    </ul>
+  </section>
+
+  <div class="callout bad">
+    <h3>⚠ Photos live on the phone only</h3>
+    Nothing is uploaded or synced between devices. <b>Export CSV/JSON before you wipe,
+    upgrade, or risk losing the phone.</b> Treat each phone's data as un-backed-up.
+  </div>
+
+  <div class="callout">
+    <h3>Good habits</h3>
+    <ul style="margin:4px 0">
+      <li><b>Reload / pull-to-refresh</b> after an update to get the newest version.</li>
+      <li>Match the <b>station code</b> to your GIS point so the export joins back by code.</li>
+      <li>Shoot with the level <b>green</b> and heading on <b>TGT</b> for clean repeats.</li>
+    </ul>
+  </div>
+
+  <h2 style="margin-top:30px">Quick reference</h2>
+  <table>
+    <tr><th>On screen</th><th>Means</th></tr>
+    <tr><td><span class="pill g">CAM</span> <span class="pill g">GPS</span> <span class="pill g">CMP</span></td>
+        <td>Sensor is live (green). Grey/red = off or blocked.</td></tr>
+    <tr><td class="mono">HDG / TGT</td><td>Live compass heading vs. the station's target heading.</td></tr>
+    <tr><td class="mono">TILT + green bar</td><td>Sideways level; green within ~5° of level.</td></tr>
+    <tr><td class="mono">rel</td><td>Compass is relative (no true-north) — recalibrate by moving the phone in a figure-8.</td></tr>
+    <tr><td><span class="pill b">Capture BASELINE</span></td><td>First reference shot for a station.</td></tr>
+    <tr><td><span class="pill g">Capture REPEAT</span></td><td>Matched re-shot on later visits.</td></tr>
+    <tr><td class="mono">GHOST slider</td><td>Fades the saved baseline over the live view to align framing.</td></tr>
+  </table>
+
+  <footer>
+    Ghostframe · single-file web app · data stored locally on device (localStorage + IndexedDB) ·
+    <a href="./">open the app</a>
+  </footer>
+</div>
+</body>
+</html>
