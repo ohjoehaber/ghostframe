@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0b0f0d">
+<title>LTPBR Repeat Photo</title>
+<style>
+  :root{
+    --bg:#0b0f0d; --panel:#121815; --panel2:#0e1411; --line:#243029;
+    --fg:#e8f0ea; --muted:#8ca298; --accent:#3ddc84; --accent-dim:#1f7a4a;
+    --warn:#ffb020; --bad:#ff5252; --tick:#3ddc84; --target:#5ec8ff;
+    --mono:'SFMono-Regular',ui-monospace,'Cascadia Mono','Roboto Mono',Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+  body{display:flex;flex-direction:column;height:100dvh;}
+  button{font-family:var(--sans);cursor:pointer}
+  .mono{font-family:var(--mono)}
+  header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);
+    border-bottom:1px solid var(--line);padding-top:calc(8px + env(safe-area-inset-top));}
+  header .title{font-weight:700;font-size:14px;letter-spacing:.5px}
+  header .ctx{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);text-align:right;line-height:1.25}
+  header .ctx b{color:var(--fg)}
+  .pills{display:flex;gap:6px}
+  .pill{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:10px;border:1px solid var(--line);
+    color:var(--muted);background:#0000}
+  .pill.on{color:#04150c;background:var(--accent);border-color:var(--accent);font-weight:700}
+  .pill.bad{color:#1a0000;background:var(--bad);border-color:var(--bad)}
+  main{flex:1;position:relative;overflow:hidden}
+  .view{position:absolute;inset:0;display:none;flex-direction:column}
+  .view.active{display:flex}
+
+  /* ---------- CAMERA ---------- */
+  #view-camera{background:#000}
+  .viewfinder{position:relative;flex:1;overflow:hidden;background:#000}
+  #video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  #ghost{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;pointer-events:none;
+    mix-blend-mode:normal}
+  .overlay{position:absolute;inset:0;pointer-events:none}
+  /* rule of thirds */
+  .thirds::before,.thirds::after{content:"";position:absolute;background:rgba(255,255,255,.28)}
+  .thirds::before{left:33.33%;right:33.33%;top:0;bottom:0;border-left:1px solid rgba(255,255,255,.28);
+    border-right:1px solid rgba(255,255,255,.28);background:none}
+  .thirds::after{top:33.33%;bottom:33.33%;left:0;right:0;border-top:1px solid rgba(255,255,255,.28);
+    border-bottom:1px solid rgba(255,255,255,.28);background:none}
+  .center-x{position:absolute;left:50%;top:50%;width:26px;height:26px;transform:translate(-50%,-50%)}
+  .center-x::before,.center-x::after{content:"";position:absolute;background:rgba(255,255,255,.5)}
+  .center-x::before{left:50%;top:0;bottom:0;width:1px;transform:translateX(-.5px)}
+  .center-x::after{top:50%;left:0;right:0;height:1px;transform:translateY(-.5px)}
+  /* artificial horizon */
+  .horizon{position:absolute;left:50%;top:50%;width:150%;height:0;
+    border-top:2px solid var(--warn);transform:translate(-50%,-50%);
+    transition:border-color .15s;opacity:.9}
+  .horizon.level{border-color:var(--accent)}
+  .horizon .wing{position:absolute;top:-4px;width:8px;height:8px;border:2px solid inherit}
+  /* level bubble */
+  .level{position:absolute;left:50%;bottom:96px;transform:translateX(-50%);
+    width:120px;height:22px;border:1px solid var(--line);border-radius:12px;background:rgba(0,0,0,.4);overflow:hidden}
+  .level .bub{position:absolute;top:50%;left:50%;width:18px;height:18px;border-radius:50%;
+    background:var(--warn);transform:translate(-50%,-50%);transition:background .15s}
+  .level.ok .bub{background:var(--accent)}
+  .level .mid{position:absolute;left:50%;top:2px;bottom:2px;width:1px;background:rgba(255,255,255,.3)}
+  /* compass rose */
+  .rose{position:absolute;top:10px;left:10px;width:76px;height:76px;border-radius:50%;
+    background:rgba(0,0,0,.5);border:1px solid var(--line)}
+  .rose .dial{position:absolute;inset:0;transition:transform .08s linear}
+  .rose .lbl{position:absolute;left:50%;top:4px;transform:translateX(-50%);font:700 11px var(--mono);color:var(--fg)}
+  .rose .lbl.e{top:50%;left:auto;right:4px;transform:translateY(-50%)}
+  .rose .lbl.s{top:auto;bottom:4px;color:var(--muted)}
+  .rose .lbl.w{top:50%;left:4px;transform:translateY(-50%);color:var(--muted)}
+  .rose .target{position:absolute;left:50%;top:2px;width:0;height:50%;transform-origin:bottom center;
+    border-left:2px solid var(--target);display:none}
+  .rose .needle{position:absolute;left:50%;top:3px;transform:translateX(-50%);
+    border-left:5px solid transparent;border-right:5px solid transparent;border-top:9px solid var(--bad)}
+  .rose .hd{position:absolute;left:0;right:0;bottom:5px;text-align:center;font:700 12px var(--mono);color:var(--fg)}
+  /* readouts */
+  .readouts{position:absolute;right:10px;top:10px;text-align:right;font-family:var(--mono);
+    font-size:11px;line-height:1.5;color:var(--fg);text-shadow:0 1px 3px #000}
+  .readouts .k{color:var(--muted)}
+  .readouts .warnrow{color:var(--warn)}
+  /* sensor start gate */
+  .gate{position:absolute;inset:0;background:rgba(4,8,6,.94);display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px;z-index:5}
+  .gate h2{margin:0;font-size:18px}
+  .gate p{margin:0;max-width:320px;color:var(--muted);font-size:13px;line-height:1.5}
+  .gate .err{color:var(--bad);font-family:var(--mono);font-size:12px;max-width:340px}
+  .bigbtn{background:var(--accent);color:#04150c;border:none;border-radius:12px;padding:14px 22px;
+    font-size:16px;font-weight:800;letter-spacing:.3px}
+  /* controls */
+  .controls{background:var(--panel2);border-top:1px solid var(--line);padding:8px 10px;
+    padding-bottom:calc(8px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px}
+  .ghostrow{display:flex;align-items:center;gap:8px}
+  .ghostrow label{font:600 11px var(--mono);color:var(--muted);white-space:nowrap}
+  .ghostrow input[type=range]{flex:1;accent-color:var(--accent)}
+  .ghostrow button{font-size:11px;padding:4px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--fg)}
+  .capbtns{display:flex;gap:8px}
+  .capbtns button{flex:1;border:none;border-radius:12px;padding:14px;font-weight:800;font-size:15px;letter-spacing:.3px}
+  .cap-base{background:var(--target);color:#00131f}
+  .cap-rep{background:var(--accent);color:#04150c}
+  .capbtns button:disabled{opacity:.4;filter:grayscale(1)}
+  .stationbar{display:flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px}
+  .stationbar select{flex:1;min-width:0}
+
+  /* ---------- SHARED FORMS ---------- */
+  .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;
+    padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  .card h3{margin:0 0 10px;font-size:13px;letter-spacing:.4px;text-transform:uppercase;color:var(--muted)}
+  label.f{display:block;margin-bottom:8px;font-size:12px;color:var(--muted)}
+  input,select,textarea{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--fg);
+    border-radius:8px;padding:9px 10px;font-size:15px;font-family:var(--sans);margin-top:3px}
+  input.mono,select.mono{font-family:var(--mono)}
+  textarea{resize:vertical;min-height:52px}
+  .row{display:flex;gap:8px}
+  .row>*{flex:1}
+  .btn{background:var(--accent);color:#04150c;border:none;border-radius:10px;padding:11px 14px;font-weight:800;font-size:14px}
+  .btn.sec{background:var(--panel2);color:var(--fg);border:1px solid var(--line);font-weight:600}
+  .btn.danger{background:#2a1414;color:var(--bad);border:1px solid #552525}
+  .btn.wide{width:100%}
+  .listitem{display:flex;gap:10px;align-items:flex-start;padding:10px;border:1px solid var(--line);
+    border-radius:10px;margin-bottom:8px;background:var(--panel2)}
+  .listitem .meta{flex:1;min-width:0}
+  .listitem .nm{font-weight:700;font-size:14px}
+  .listitem .sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px;word-break:break-word}
+  .listitem .act{display:flex;flex-direction:column;gap:6px}
+  .chip{display:inline-block;font:700 10px var(--mono);padding:1px 6px;border-radius:8px;
+    background:var(--panel);border:1px solid var(--line);color:var(--accent);margin-right:4px}
+  .minibtn{font:600 11px var(--sans);padding:6px 8px;border-radius:8px;border:1px solid var(--line);
+    background:var(--panel);color:var(--fg)}
+  .minibtn.danger{color:var(--bad);border-color:#552525}
+  .empty{color:var(--muted);font-size:13px;text-align:center;padding:20px}
+
+  /* ---------- GALLERY ---------- */
+  .galtools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .galtools select{flex:1;min-width:120px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .ph{position:relative;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel2)}
+  .ph img{display:block;width:100%;height:120px;object-fit:cover;background:#000}
+  .ph .tag{position:absolute;top:4px;left:4px;font:700 9px var(--mono);padding:1px 5px;border-radius:6px}
+  .ph .tag.baseline{background:var(--target);color:#00131f}
+  .ph .tag.repeat{background:var(--accent);color:#04150c}
+  .ph .cap{padding:6px;font-family:var(--mono);font-size:10px;color:var(--muted);line-height:1.35}
+  .ph .cap b{color:var(--fg)}
+  .ph .del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:6px;border:none;
+    background:rgba(0,0,0,.6);color:var(--bad);font-weight:900;line-height:1}
+
+  /* ---------- NAV ---------- */
+  nav{display:flex;background:var(--panel2);border-top:1px solid var(--line);
+    padding-bottom:env(safe-area-inset-bottom)}
+  nav button{flex:1;background:none;border:none;color:var(--muted);padding:10px 4px;font-size:11px;
+    font-weight:700;letter-spacing:.3px;display:flex;flex-direction:column;align-items:center;gap:3px}
+  nav button .ic{font-size:18px;line-height:1}
+  nav button.active{color:var(--accent)}
+
+  /* toast */
+  .toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);
+    background:var(--accent);color:#04150c;font-weight:800;font-size:13px;padding:10px 16px;border-radius:10px;
+    opacity:0;transition:.25s;pointer-events:none;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.err{background:var(--bad);color:#fff}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">LTPBR&nbsp;REPEAT&nbsp;PHOTO</div>
+  <div class="pills">
+    <span class="pill" id="pill-cam">CAM</span>
+    <span class="pill" id="pill-gps">GPS</span>
+    <span class="pill" id="pill-cmp">CMP</span>
+  </div>
+  <div class="ctx" id="ctx">no site<br>no station</div>
+</header>
+
+<main>
+  <!-- ============ CAMERA ============ -->
+  <section class="view active" id="view-camera">
+    <div class="viewfinder" id="viewfinder">
+      <video id="video" playsinline autoplay muted></video>
+      <img id="ghost" alt="">
+      <div class="overlay thirds"></div>
+      <div class="overlay"><div class="center-x"></div></div>
+      <div class="horizon" id="horizon"></div>
+      <div class="rose" id="rose">
+        <div class="dial" id="roseDial">
+          <span class="lbl n">N</span><span class="lbl e">E</span>
+          <span class="lbl s">S</span><span class="lbl w">W</span>
+          <div class="target" id="roseTarget"></div>
+        </div>
+        <div class="needle"></div>
+        <div class="hd" id="roseHd">--&deg;</div>
+      </div>
+      <div class="readouts" id="readouts">
+        <div><span class="k">HDG</span> <span id="rdHd">---&deg;</span></div>
+        <div><span class="k">TGT</span> <span id="rdTgt">---&deg;</span></div>
+        <div><span class="k">TILT</span> <span id="rdTilt">--&deg;</span></div>
+        <div><span class="k">LAT</span> <span id="rdLat">--</span></div>
+        <div><span class="k">LON</span> <span id="rdLon">--</span></div>
+        <div><span class="k">±</span> <span id="rdAcc">--</span>m</div>
+      </div>
+      <div class="level" id="level"><div class="mid"></div><div class="bub" id="levelBub"></div></div>
+
+      <div class="gate" id="gate">
+        <h2>Field sensors</h2>
+        <p>Tap to start the camera, GPS, compass and tilt sensors. iOS will ask permission for motion &amp; orientation — allow it.</p>
+        <button class="bigbtn" id="startBtn">Start camera &amp; sensors</button>
+        <div class="err" id="gateErr"></div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="stationbar">
+        <select id="quickSite" class="mono" title="Site"></select>
+        <select id="quickStation" class="mono" title="Station"></select>
+      </div>
+      <div class="ghostrow">
+        <label>GHOST</label>
+        <input type="range" id="ghostSlider" min="0" max="100" value="0">
+        <button id="ghostLoad" title="Load this station's baseline as ghost">Baseline</button>
+        <button id="ghostClear" title="Clear ghost">✕</button>
+      </div>
+      <div class="capbtns">
+        <button class="cap-base" id="capBaseline">Capture BASELINE</button>
+        <button class="cap-rep" id="capRepeat">Capture REPEAT</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SITES ============ -->
+  <section class="view" id="view-sites">
+    <div class="scroll">
+      <div class="card">
+        <h3>New monitoring site</h3>
+        <label class="f">Site name
+          <input id="sName" placeholder="e.g. Bridge Creek Reach 2">
+        </label>
+        <div class="row">
+          <label class="f">Structure type
+            <select id="sType" class="mono">
+              <option value="BDA">BDA</option>
+              <option value="PALS">PALS</option>
+              <option value="BDA+PALS">BDA+PALS</option>
+              <option value="Reference reach">Reference reach</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label class="f">Watershed
+            <input id="sWatershed" class="mono" placeholder="HUC / name">
+          </label>
+        </div>
+        <button class="btn wide" id="addSite">Add site</button>
+      </div>
+
+      <div class="card">
+        <h3>Add photo station</h3>
+        <label class="f">Site
+          <select id="stSite" class="mono"></select>
+        </label>
+        <div class="row">
+          <label class="f">Station code
+            <input id="stCode" class="mono" placeholder="e.g. PS-01">
+          </label>
+          <label class="f">Target heading °
+            <input id="stHeading" class="mono" type="number" min="0" max="359" inputmode="numeric" placeholder="0-359">
+          </label>
+        </div>
+        <label class="f">Placement note
+          <textarea id="stNote" placeholder="Bank pin, tripod mark, framing cue…"></textarea>
+        </label>
+        <button class="btn wide" id="addStation">Add station</button>
+      </div>
+
+      <div class="card">
+        <h3>Sites &amp; stations</h3>
+        <div id="siteList"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GALLERY ============ -->
+  <section class="view" id="view-gallery">
+    <div class="scroll">
+      <div class="galtools">
+        <select id="galSite" class="mono"><option value="">All sites</option></select>
+        <select id="galType" class="mono">
+          <option value="">All types</option>
+          <option value="baseline">Baseline</option>
+          <option value="repeat">Repeat</option>
+        </select>
+      </div>
+      <div class="galtools">
+        <button class="btn sec" id="expCsv">Export CSV</button>
+        <button class="btn sec" id="expJson">Export JSON</button>
+        <button class="btn danger" id="wipe">Erase all</button>
+      </div>
+      <div id="galCount" class="empty" style="padding:4px 0"></div>
+      <div class="grid" id="galGrid"></div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button data-view="camera" class="active"><span class="ic">◎</span>Camera</button>
+  <button data-view="sites"><span class="ic">▤</span>Sites</button>
+  <button data-view="gallery"><span class="ic">▦</span>Gallery</button>
+</nav>
+
+<div class="toast" id="toast"></div>
+<canvas id="capCanvas" style="display:none"></canvas>
+
+<script>
+"use strict";
+(function(){
+  // ---------------- storage ----------------
+  const LS = {
+    sites:'ltpbr.sites', stations:'ltpbr.stations', photos:'ltpbr.photos', settings:'ltpbr.settings'
+  };
+  const load = (k,def)=>{ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):def; }catch(e){ return def; } };
+  const save = (k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('Storage full',true); } };
+
+  let sites    = load(LS.sites, []);
+  let stations = load(LS.stations, []);
+  let photos   = load(LS.photos, []);        // metadata only; image bytes live in IndexedDB
+  let settings = load(LS.settings, {ghost:0, currentSite:null, currentStation:null});
+
+  const saveSites    = ()=>save(LS.sites, sites);
+  const saveStations = ()=>save(LS.stations, stations);
+  const savePhotos   = ()=>save(LS.photos, photos);
+  const saveSettings = ()=>save(LS.settings, settings);
+
+  // ---------------- IndexedDB (image blobs) ----------------
+  let _db=null;
+  function idb(){
+    return new Promise((res,rej)=>{
+      if(_db) return res(_db);
+      const r=indexedDB.open('ltpbr-photos',1);
+      r.onupgradeneeded=e=>{ e.target.result.createObjectStore('img'); };
+      r.onsuccess=e=>{ _db=e.target.result; res(_db); };
+      r.onerror=e=>rej(e.target.error);
+    });
+  }
+  async function imgPut(id,dataURL){ const db=await idb(); return new Promise((res,rej)=>{
+    const t=db.transaction('img','readwrite'); t.objectStore('img').put(dataURL,id);
+    t.oncomplete=()=>res(); t.onerror=e=>rej(e.target.error); }); }
+  async function imgGet(id){ const db=await idb(); return new Promise((res,rej)=>{
+    const t=db.transaction('img','readonly'); const rq=t.objectStore('img').get(id);
+    rq.onsuccess=()=>res(rq.result||null); rq.onerror=e=>rej(e.target.error); }); }
+  async function imgDel(id){ const db=await idb(); return new Promise((res,rej)=>{
+    const t=db.transaction('img','readwrite'); t.objectStore('img').delete(id);
+    t.oncomplete=()=>res(); t.onerror=e=>rej(e.target.error); }); }
+
+  // ---------------- helpers ----------------
+  const $=s=>document.querySelector(s);
+  const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  function toast(msg,err){ const t=$('#toast'); t.textContent=msg; t.className='toast show'+(err?' err':'');
+    clearTimeout(toast._t); toast._t=setTimeout(()=>t.className='toast',1800); }
+  const siteById=id=>sites.find(s=>s.id===id);
+  const stationById=id=>stations.find(s=>s.id===id);
+
+  // ---------------- sensor state ----------------
+  const state={ heading:null, headingSrc:null, pitch:null, roll:null,
+    lat:null, lon:null, acc:null, hasCam:false, hasGps:false, hasCmp:false, started:false };
+
+  // ================= CAMERA / SENSORS =================
+  let stream=null;
+  async function startCamera(){
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} }, audio:false });
+      const v=$('#video'); v.srcObject=stream; await v.play().catch(()=>{});
+      state.hasCam=true; setPill('cam',true);
+    }catch(e){ state.hasCam=false; setPill('cam',false,true);
+      gateErr('Camera blocked: '+(e.message||e.name)+'. Check the site is HTTPS and camera permission is allowed.'); }
+  }
+  function startGps(){
+    if(!navigator.geolocation){ setPill('gps',false,true); return; }
+    navigator.geolocation.watchPosition(p=>{
+      state.lat=p.coords.latitude; state.lon=p.coords.longitude; state.acc=p.coords.accuracy;
+      state.hasGps=true; setPill('gps',true); updateReadouts();
+    }, err=>{ setPill('gps',false,true); }, {enableHighAccuracy:true,maximumAge:2000,timeout:15000});
+  }
+  function onOrient(e){
+    let h=null,src=null;
+    if(typeof e.webkitCompassHeading==='number' && !isNaN(e.webkitCompassHeading)){ h=e.webkitCompassHeading; src='true'; }
+    else if(e.absolute && typeof e.alpha==='number'){ h=(360-e.alpha)%360; src='true'; }
+    else if(typeof e.alpha==='number'){ h=(360-e.alpha)%360; src='rel'; }
+    if(h!==null){ state.heading=(h+360)%360; state.headingSrc=src; state.hasCmp=true; setPill('cmp',true); }
+    if(typeof e.beta==='number') state.pitch=e.beta;
+    if(typeof e.gamma==='number') state.roll=e.gamma;
+    updateOverlays();
+  }
+  async function startOrientation(){
+    try{
+      if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+        const r=await DeviceOrientationEvent.requestPermission();   // iOS 13+ requires user gesture
+        if(r!=='granted'){ setPill('cmp',false,true); gateErr('Motion/orientation permission denied.'); }
+      }
+      if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+        try{ await DeviceMotionEvent.requestPermission(); }catch(_){}
+      }
+    }catch(e){ /* non-iOS */ }
+    window.addEventListener('deviceorientationabsolute', onOrient, true);
+    window.addEventListener('deviceorientation', onOrient, true);
+  }
+  async function startAll(){
+    if(state.started) return;
+    state.started=true;
+    $('#startBtn').disabled=true; $('#startBtn').textContent='Starting…';
+    await startOrientation();
+    await startCamera();
+    startGps();
+    // hide gate if camera came up; otherwise leave error visible
+    if(state.hasCam){ $('#gate').style.display='none'; }
+    else { $('#startBtn').disabled=false; $('#startBtn').textContent='Retry'; state.started=false; }
+  }
+  function gateErr(m){ $('#gateErr').textContent=m; }
+
+  // ---------------- overlay rendering ----------------
+  const targetHeading=()=>{ const st=stationById(settings.currentStation);
+    return st && st.targetHeading!==''&&st.targetHeading!=null && !isNaN(+st.targetHeading) ? +st.targetHeading : null; };
+  function updateOverlays(){
+    const roll=state.roll==null?0:state.roll;
+    const pitch=state.pitch==null?90:state.pitch;
+    // artificial horizon: counter-rotate roll, shift with pitch off vertical
+    const hz=$('#horizon');
+    const dy=clamp((pitch-90)*-2.2,-140,140);
+    hz.style.transform=`translate(-50%,-50%) translateY(${dy}px) rotate(${-roll}deg)`;
+    const levelOk=Math.abs(roll)<=5;
+    hz.classList.toggle('level',levelOk);
+    // level bubble
+    const lv=$('#level'); const bub=$('#levelBub');
+    lv.classList.toggle('ok',levelOk);
+    bub.style.left=clamp(50 + roll*3, 8, 92)+'%';
+    // compass rose
+    if(state.heading!=null){
+      $('#roseDial').style.transform=`rotate(${-state.heading}deg)`;
+      $('#roseHd').textContent=Math.round(state.heading)+'°';
+      const tgt=targetHeading();
+      const tk=$('#roseTarget');
+      if(tgt!=null){ tk.style.display='block'; tk.style.transform=`translateX(-50%) rotate(${tgt}deg)`; }
+      else tk.style.display='none';
+    }
+    updateReadouts();
+  }
+  function fmtHd(h){ return h==null?'---°':Math.round(h)+'°'; }
+  function updateReadouts(){
+    $('#rdHd').innerHTML=fmtHd(state.heading)+(state.headingSrc==='rel'?' <span class="warnrow">rel</span>':'');
+    const tgt=targetHeading();
+    $('#rdTgt').textContent = tgt==null?'---°':tgt+'°';
+    $('#rdTilt').textContent = state.roll==null?'--°':(Math.round(state.roll)+'°');
+    $('#rdLat').textContent = state.lat==null?'--':state.lat.toFixed(5);
+    $('#rdLon').textContent = state.lon==null?'--':state.lon.toFixed(5);
+    $('#rdAcc').textContent = state.acc==null?'--':Math.round(state.acc);
+  }
+  function setPill(which,on,bad){
+    const el=$('#pill-'+(which==='cam'?'cam':which==='gps'?'gps':'cmp'));
+    el.className='pill'+(on?' on':bad?' bad':'');
+  }
+
+  // ================= CAPTURE =================
+  async function capture(type){
+    if(!state.currentReady()){ toast('Pick a site & station first',true); go('sites'); return; }
+    const v=$('#video');
+    if(!v.videoWidth){ toast('Camera not ready',true); return; }
+    const c=$('#capCanvas'); c.width=v.videoWidth; c.height=v.videoHeight;
+    c.getContext('2d').drawImage(v,0,0,c.width,c.height);
+    let dataURL; try{ dataURL=c.toDataURL('image/jpeg',0.85); }catch(e){ toast('Capture failed',true); return; }
+    const id=uid();
+    const st=stationById(settings.currentStation), site=siteById(settings.currentSite);
+    const meta={ id, type, siteId:settings.currentSite, stationId:settings.currentStation,
+      siteName:site?site.name:'', stationCode:st?st.code:'',
+      timestamp:new Date().toISOString(),
+      lat:state.lat, lon:state.lon, accuracy:state.acc,
+      heading:state.heading==null?null:+state.heading.toFixed(1), headingSource:state.headingSrc,
+      targetHeading: (st&&st.targetHeading!==''&&st.targetHeading!=null)?+st.targetHeading:null,
+      pitch:state.pitch==null?null:+state.pitch.toFixed(1),
+      roll:state.roll==null?null:+state.roll.toFixed(1),
+      level: state.roll==null?null:(Math.abs(state.roll)<=5) };
+    try{ await imgPut(id,dataURL); }catch(e){ toast('Could not save image',true); return; }
+    photos.unshift(meta); savePhotos();
+    toast(type==='baseline'?'Baseline captured':'Repeat captured');
+    if(type==='baseline') loadGhostForStation(settings.currentStation);
+    if($('#view-gallery').classList.contains('active')) renderGallery();
+  }
+  state.currentReady=()=>!!(settings.currentSite && settings.currentStation);
+
+  // ---------------- ghost overlay ----------------
+  async function loadGhostForStation(stationId){
+    if(!stationId){ return; }
+    const base=photos.find(p=>p.stationId===stationId && p.type==='baseline'); // newest first
+    if(!base){ toast('No baseline for this station',true); return; }
+    const data=await imgGet(base.id);
+    if(!data){ toast('Baseline image missing',true); return; }
+    const g=$('#ghost'); g.src=data;
+    if(+$('#ghostSlider').value===0){ $('#ghostSlider').value=45; setGhost(45); }
+    toast('Ghost loaded');
+  }
+  function setGhost(v){ $('#ghost').style.opacity=(v/100).toString(); settings.ghost=+v; saveSettings(); }
+
+  // ================= NAV =================
+  function go(view){
+    document.querySelectorAll('.view').forEach(s=>s.classList.remove('active'));
+    $('#view-'+view).classList.add('active');
+    document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===view));
+    if(view==='sites') renderSites();
+    if(view==='gallery') renderGallery();
+  }
+  document.querySelectorAll('nav button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.view)));
+
+  // ================= SITE / STATION CRUD =================
+  function addSite(){
+    const name=$('#sName').value.trim();
+    if(!name){ toast('Site name required',true); return; }
+    const s={ id:uid(), name, structureType:$('#sType').value, watershed:$('#sWatershed').value.trim(), createdAt:new Date().toISOString() };
+    sites.push(s); saveSites();
+    $('#sName').value=''; $('#sWatershed').value='';
+    if(!settings.currentSite){ settings.currentSite=s.id; saveSettings(); }
+    refreshSelectors(); renderSites(); toast('Site added');
+  }
+  function addStation(){
+    const siteId=$('#stSite').value;
+    if(!siteId){ toast('Add a site first',true); return; }
+    const code=$('#stCode').value.trim();
+    if(!code){ toast('Station code required',true); return; }
+    const hd=$('#stHeading').value.trim();
+    const st={ id:uid(), siteId, code, targetHeading: hd===''?null:clamp(+hd,0,359),
+      note:$('#stNote').value.trim(), createdAt:new Date().toISOString() };
+    stations.push(st); saveStations();
+    $('#stCode').value=''; $('#stHeading').value=''; $('#stNote').value='';
+    if(settings.currentSite===siteId && !settings.currentStation){ settings.currentStation=st.id; saveSettings(); }
+    refreshSelectors(); renderSites(); toast('Station added');
+  }
+  function delSite(id){
+    if(!confirm('Delete this site, its stations and their photos?')) return;
+    const sts=stations.filter(s=>s.siteId===id).map(s=>s.id);
+    photos.filter(p=>p.siteId===id).forEach(p=>imgDel(p.id));
+    photos=photos.filter(p=>p.siteId!==id); savePhotos();
+    stations=stations.filter(s=>s.siteId!==id); saveStations();
+    sites=sites.filter(s=>s.id!==id); saveSites();
+    if(settings.currentSite===id){ settings.currentSite=sites[0]?sites[0].id:null; settings.currentStation=null; saveSettings(); }
+    refreshSelectors(); renderSites();
+  }
+  function delStation(id){
+    if(!confirm('Delete this station and its photos?')) return;
+    photos.filter(p=>p.stationId===id).forEach(p=>imgDel(p.id));
+    photos=photos.filter(p=>p.stationId!==id); savePhotos();
+    stations=stations.filter(s=>s.id!==id); saveStations();
+    if(settings.currentStation===id){ settings.currentStation=null; saveSettings(); }
+    refreshSelectors(); renderSites();
+  }
+
+  // ---------------- rendering: sites ----------------
+  function renderSites(){
+    // station-form site selector
+    const stSel=$('#stSite'); const keep=stSel.value;
+    stSel.innerHTML=sites.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    if(keep && sites.some(s=>s.id===keep)) stSel.value=keep;
+
+    const list=$('#siteList');
+    if(!sites.length){ list.innerHTML='<div class="empty">No sites yet. Add one above.</div>'; return; }
+    list.innerHTML=sites.map(s=>{
+      const sts=stations.filter(x=>x.siteId===s.id);
+      const stHtml = sts.length ? sts.map(st=>{
+        const n=photos.filter(p=>p.stationId===st.id).length;
+        const b=photos.filter(p=>p.stationId===st.id&&p.type==='baseline').length;
+        return `<div class="listitem" style="margin-left:10px">
+          <div class="meta"><div class="nm mono">${esc(st.code)}
+            <span class="chip">${st.targetHeading==null?'no tgt':st.targetHeading+'°'}</span></div>
+            <div class="sub">${esc(st.note||'—')}<br>${n} photo${n===1?'':'s'} · ${b} baseline</div></div>
+          <div class="act">
+            <button class="minibtn" data-use="${st.id}">Use</button>
+            <button class="minibtn danger" data-delst="${st.id}">Del</button>
+          </div></div>`;
+      }).join('') : '<div class="sub" style="margin:0 0 8px 10px">No stations yet.</div>';
+      return `<div class="listitem" style="flex-direction:column;align-items:stretch">
+        <div style="display:flex;gap:10px">
+          <div class="meta"><div class="nm">${esc(s.name)}</div>
+            <div class="sub"><span class="chip">${esc(s.structureType)}</span>${esc(s.watershed||'no watershed')}</div></div>
+          <div class="act"><button class="minibtn danger" data-delsite="${s.id}">Del</button></div>
+        </div>
+        <div style="margin-top:8px">${stHtml}</div>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-delsite]').forEach(b=>b.onclick=()=>delSite(b.dataset.delsite));
+    list.querySelectorAll('[data-delst]').forEach(b=>b.onclick=()=>delStation(b.dataset.delst));
+    list.querySelectorAll('[data-use]').forEach(b=>b.onclick=()=>{
+      const st=stationById(b.dataset.use); settings.currentSite=st.siteId; settings.currentStation=st.id;
+      saveSettings(); refreshSelectors(); toast('Active: '+st.code); go('camera'); });
+  }
+
+  // ---------------- selectors / context ----------------
+  function refreshSelectors(){
+    const qs=$('#quickSite');
+    qs.innerHTML=sites.length?sites.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('')
+      :'<option value="">— no sites —</option>';
+    if(settings.currentSite) qs.value=settings.currentSite;
+    else if(sites.length){ settings.currentSite=sites[0].id; qs.value=settings.currentSite; }
+
+    const qst=$('#quickStation');
+    const sts=stations.filter(s=>s.siteId===settings.currentSite);
+    qst.innerHTML=sts.length?sts.map(s=>`<option value="${s.id}">${esc(s.code)}</option>`).join('')
+      :'<option value="">— no stations —</option>';
+    if(settings.currentStation && sts.some(s=>s.id===settings.currentStation)) qst.value=settings.currentStation;
+    else { settings.currentStation=sts[0]?sts[0].id:null; if(settings.currentStation) qst.value=settings.currentStation; }
+    saveSettings();
+
+    // gallery site filter
+    const gs=$('#galSite'); const gk=gs.value;
+    gs.innerHTML='<option value="">All sites</option>'+sites.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+    gs.value=gk;
+
+    updateCtx(); updateReadouts();
+  }
+  function updateCtx(){
+    const s=siteById(settings.currentSite), st=stationById(settings.currentStation);
+    $('#ctx').innerHTML=(s?'<b>'+esc(s.name)+'</b>':'no site')+'<br>'+(st?esc(st.code)+(st.targetHeading!=null?' · tgt '+st.targetHeading+'°':''):'no station');
+    const ready=state.currentReady();
+    $('#capBaseline').disabled=!ready; $('#capRepeat').disabled=!ready;
+  }
+
+  // ================= GALLERY =================
+  async function renderGallery(){
+    const fSite=$('#galSite').value, fType=$('#galType').value;
+    let list=photos.slice();
+    if(fSite) list=list.filter(p=>p.siteId===fSite);
+    if(fType) list=list.filter(p=>p.type===fType);
+    $('#galCount').textContent=list.length+' photo'+(list.length===1?'':'s');
+    const grid=$('#galGrid');
+    if(!list.length){ grid.innerHTML='<div class="empty" style="grid-column:1/-1">No photos.</div>'; return; }
+    grid.innerHTML=list.map(p=>{
+      const t=new Date(p.timestamp);
+      const when=t.toLocaleDateString()+' '+t.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+      return `<div class="ph" data-id="${p.id}">
+        <img loading="lazy" alt="">
+        <span class="tag ${p.type}">${p.type.toUpperCase()}</span>
+        <button class="del" data-del="${p.id}">×</button>
+        <div class="cap"><b>${esc(p.stationCode||'—')}</b> · ${esc(p.siteName||'')}<br>
+          ${when}<br>HDG ${p.heading==null?'--':Math.round(p.heading)+'°'} · TILT ${p.roll==null?'--':Math.round(p.roll)+'°'}<br>
+          ${p.lat==null?'no GPS':p.lat.toFixed(5)+', '+p.lon.toFixed(5)}</div>
+      </div>`;
+    }).join('');
+    grid.querySelectorAll('[data-del]').forEach(b=>b.onclick=async(e)=>{
+      e.stopPropagation();
+      if(!confirm('Delete this photo?')) return;
+      await imgDel(b.dataset.del); photos=photos.filter(p=>p.id!==b.dataset.del); savePhotos(); renderGallery(); });
+    // lazy load images from IDB
+    for(const el of grid.querySelectorAll('.ph')){
+      const id=el.dataset.id; const data=await imgGet(id);
+      if(data) el.querySelector('img').src=data;
+    }
+  }
+
+  // ================= EXPORT =================
+  const CSV_COLS=['id','type','siteName','stationCode','structureType','watershed','timestamp',
+    'lat','lon','accuracy','heading','headingSource','targetHeading','pitch','roll','level'];
+  function csvCell(v){ if(v==null) return ''; v=String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+  function exportCsv(){
+    if(!photos.length){ toast('No photos to export',true); return; }
+    const rows=[CSV_COLS.join(',')];
+    for(const p of photos){
+      const site=siteById(p.siteId);
+      const rec=Object.assign({}, p, { structureType:site?site.structureType:'', watershed:site?site.watershed:'' });
+      rows.push(CSV_COLS.map(c=>csvCell(rec[c])).join(','));
+    }
+    download('ltpbr-photos-'+stamp()+'.csv', rows.join('\n'), 'text/csv');
+  }
+  function exportJson(){
+    const out={ app:'ltpbr-repeat-photo', exportedAt:new Date().toISOString(),
+      sites, stations, photos };
+    download('ltpbr-export-'+stamp()+'.json', JSON.stringify(out,null,2), 'application/json');
+  }
+  function download(name,text,mime){
+    const blob=new Blob([text],{type:mime}); const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('Exported '+name);
+  }
+  const stamp=()=>new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
+
+  async function wipeAll(){
+    if(!confirm('Erase ALL sites, stations and photos? This cannot be undone.')) return;
+    for(const p of photos) await imgDel(p.id);
+    sites=[]; stations=[]; photos=[]; settings.currentSite=null; settings.currentStation=null;
+    saveSites(); saveStations(); savePhotos(); saveSettings();
+    refreshSelectors(); renderSites(); renderGallery(); toast('Erased');
+  }
+
+  const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+  // ================= WIRE UP =================
+  $('#startBtn').addEventListener('click', startAll);
+  $('#addSite').addEventListener('click', addSite);
+  $('#addStation').addEventListener('click', addStation);
+  $('#capBaseline').addEventListener('click', ()=>capture('baseline'));
+  $('#capRepeat').addEventListener('click', ()=>capture('repeat'));
+  $('#ghostSlider').addEventListener('input', e=>setGhost(e.target.value));
+  $('#ghostLoad').addEventListener('click', ()=>loadGhostForStation(settings.currentStation));
+  $('#ghostClear').addEventListener('click', ()=>{ $('#ghost').src=''; $('#ghost').style.opacity=0;
+    $('#ghostSlider').value=0; settings.ghost=0; saveSettings(); });
+  $('#quickSite').addEventListener('change', e=>{ settings.currentSite=e.target.value; settings.currentStation=null;
+    saveSettings(); refreshSelectors(); });
+  $('#quickStation').addEventListener('change', e=>{ settings.currentStation=e.target.value; saveSettings();
+    updateCtx(); updateOverlays(); });
+  $('#galSite').addEventListener('change', renderGallery);
+  $('#galType').addEventListener('change', renderGallery);
+  $('#expCsv').addEventListener('click', exportCsv);
+  $('#expJson').addEventListener('click', exportJson);
+  $('#wipe').addEventListener('click', wipeAll);
+
+  // ================= INIT =================
+  refreshSelectors();
+  $('#ghostSlider').value=settings.ghost||0;
+  updateReadouts();
+  window.addEventListener('beforeunload', ()=>{ if(stream) stream.getTracks().forEach(t=>t.stop()); });
+})();
+</script>
+</body>
+</html>
