@@ -1,4 +1,7 @@
-# LTPBR Repeat Photo
+# Ghostframe
+
+*Repeat photography for LTPBR stream monitoring — named for the ghost-overlay
+trick that lines up each repeat shot against its baseline.*
 
 A single-file, offline-capable web app for **repeat photography** on LTPBR
 (Low-Tech Process-Based Restoration) stream monitoring. Open it on a phone and
