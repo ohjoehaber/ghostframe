@@ -8,7 +8,7 @@ A single-file, offline-capable web app for **repeat photography** on LTPBR
 it gives the field crew a framing-assisted camera for re-shooting the same view
 over time.
 
-**Live app:** https://ohjoehaber.github.io/ltpbr-repeat-photo/
+**Live app:** https://ohjoehaber.github.io/ghostframe/
 *(camera + orientation sensors require HTTPS — this URL works, opening the file
 locally does not)*
 
