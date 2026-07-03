@@ -67,6 +67,16 @@
     background:var(--warn);transform:translate(-50%,-50%);transition:background .15s}
   .level.ok .bub{background:var(--accent)}
   .level .mid{position:absolute;left:50%;top:2px;bottom:2px;width:1px;background:rgba(255,255,255,.3)}
+  /* compass calibration hint */
+  .calibhint{position:absolute;left:8px;right:8px;bottom:8px;display:none;align-items:center;gap:9px;
+    background:rgba(42,28,0,.93);border:1px solid var(--warn);border-radius:10px;padding:8px 10px;
+    pointer-events:auto;z-index:4;backdrop-filter:blur(2px)}
+  .calibhint.show{display:flex}
+  .calibhint .ico{flex:0 0 auto;font-size:17px;line-height:1;filter:grayscale(.1)}
+  .calibhint .msg{flex:1;font-size:12px;line-height:1.35;color:#ffeccf}
+  .calibhint .msg b{color:var(--warn)}
+  .calibhint .x{flex:0 0 auto;background:none;border:none;color:var(--muted);font:800 15px var(--sans);
+    padding:2px 4px;line-height:1}
   /* compass rose */
   .rose{position:absolute;top:10px;left:10px;width:76px;height:76px;border-radius:50%;
     background:rgba(0,0,0,.5);border:1px solid var(--line)}
@@ -207,6 +217,12 @@
         <div><span class="k">±</span> <span id="rdAcc">--</span>m</div>
       </div>
       <div class="level" id="level"><div class="mid"></div><div class="bub" id="levelBub"></div></div>
+
+      <div class="calibhint" id="calibHint">
+        <span class="ico">🧭</span>
+        <span class="msg" id="calibMsg"></span>
+        <button class="x" id="calibX" aria-label="Dismiss">✕</button>
+      </div>
 
       <div class="gate" id="gate">
         <h2>Field sensors</h2>
@@ -368,7 +384,8 @@
 
   // ---------------- sensor state ----------------
   const state={ heading:null, headingSrc:null, pitch:null, roll:null,
-    lat:null, lon:null, acc:null, hasCam:false, hasGps:false, hasCmp:false, started:false };
+    lat:null, lon:null, acc:null, hasCam:false, hasGps:false, hasCmp:false, started:false, startedAt:0 };
+  let calibDismissed=false;
 
   // ================= CAMERA / SENSORS =================
   let stream=null;
@@ -413,11 +430,12 @@
   }
   async function startAll(){
     if(state.started) return;
-    state.started=true;
+    state.started=true; state.startedAt=Date.now();
     $('#startBtn').disabled=true; $('#startBtn').textContent='Starting…';
     await startOrientation();
     await startCamera();
     startGps();
+    setTimeout(updateCalibHint, 4200);   // catch "no compass response" after events had a chance to fire
     // hide gate if camera came up; otherwise leave error visible
     if(state.hasCam){ $('#gate').style.display='none'; }
     else { $('#startBtn').disabled=false; $('#startBtn').textContent='Retry'; state.started=false; }
@@ -460,6 +478,21 @@
     $('#rdLat').textContent = state.lat==null?'--':state.lat.toFixed(5);
     $('#rdLon').textContent = state.lon==null?'--':state.lon.toFixed(5);
     $('#rdAcc').textContent = state.acc==null?'--':Math.round(state.acc);
+    updateCalibHint();
+  }
+  function updateCalibHint(){
+    const el=$('#calibHint'); if(!el) return;
+    if(!state.started){ el.classList.remove('show'); return; }
+    if(state.headingSrc==='true'){ calibDismissed=false; el.classList.remove('show'); return; } // recovered → re-arm
+    if(calibDismissed){ el.classList.remove('show'); return; }
+    let msg=null;
+    if(state.headingSrc==='rel'){
+      msg='Compass isn’t locked to <b>true north</b> (rel). Wave the phone in a <b>figure-8, away from metal</b> to recalibrate.';
+    } else if(!state.hasCmp && (Date.now()-state.startedAt)>4000){
+      msg='Compass not responding. Allow motion access, then wave the phone in a <b>figure-8 away from metal</b>.';
+    }
+    if(msg){ $('#calibMsg').innerHTML=msg; el.classList.add('show'); }
+    else el.classList.remove('show');
   }
   function setPill(which,on,bad){
     const el=$('#pill-'+(which==='cam'?'cam':which==='gps'?'gps':'cmp'));
@@ -697,6 +730,7 @@
 
   // ================= WIRE UP =================
   $('#startBtn').addEventListener('click', startAll);
+  $('#calibX').addEventListener('click', ()=>{ calibDismissed=true; $('#calibHint').classList.remove('show'); });
   $('#addSite').addEventListener('click', addSite);
   $('#addStation').addEventListener('click', addStation);
   $('#capBaseline').addEventListener('click', ()=>capture('baseline'));
