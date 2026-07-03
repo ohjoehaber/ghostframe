@@ -28,6 +28,10 @@
     background:var(--panel);color:var(--muted);font:800 14px var(--sans);text-decoration:none;
     display:flex;align-items:center;justify-content:center;line-height:1}
   header .help:active{background:var(--accent);color:#04150c}
+  header .beta{flex:0 0 auto;font:800 9px var(--mono);letter-spacing:.5px;color:var(--warn);
+    border:1px solid var(--warn);border-radius:8px;padding:1px 5px;align-self:center}
+  .gatever{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:2px}
+  .gate .fbline{margin-top:4px}
   .pills{display:flex;gap:6px}
   .pill{font-family:var(--mono);font-size:10px;padding:2px 6px;border-radius:10px;border:1px solid var(--line);
     color:var(--muted);background:#0000}
@@ -181,12 +185,14 @@
 <body>
 <header>
   <div class="title">GHOSTFRAME</div>
+  <span class="beta" id="beta" title="Beta build">BETA</span>
   <div class="pills">
     <span class="pill" id="pill-cam">CAM</span>
     <span class="pill" id="pill-gps">GPS</span>
     <span class="pill" id="pill-cmp">CMP</span>
   </div>
   <div class="ctx" id="ctx">no site<br>no station</div>
+  <button class="help" id="fbBtn" title="Send beta feedback" aria-label="Send beta feedback">✉</button>
   <a class="help" href="guide.html" target="_blank" rel="noopener" title="Field guide" aria-label="Field guide">?</a>
 </header>
 
@@ -229,6 +235,8 @@
         <p>Tap to start the camera, GPS, compass and tilt sensors. iOS will ask permission for motion &amp; orientation — allow it.</p>
         <button class="bigbtn" id="startBtn">Start camera &amp; sensors</button>
         <div class="err" id="gateErr"></div>
+        <button class="minibtn fbline" id="fbBtn2">✉ Report a problem</button>
+        <div class="gatever" id="gatever"></div>
       </div>
     </div>
 
@@ -335,6 +343,8 @@
 <script>
 "use strict";
 (function(){
+  const APP_VERSION='v0.9.0-beta';
+  const FEEDBACK_TO='ohjoehaber@hotmail.com';
   // ---------------- storage ----------------
   const LS = {
     sites:'ltpbr.sites', stations:'ltpbr.stations', photos:'ltpbr.photos', settings:'ltpbr.settings'
@@ -728,9 +738,37 @@
 
   const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+  // ================= BETA FEEDBACK =================
+  function sendFeedback(){
+    const nl='\n';
+    const body=[
+      'Ghostframe beta feedback','',
+      'What happened / idea (type here):','',
+      '',
+      '--- please keep the details below ---',
+      'App: '+APP_VERSION,
+      'When: '+new Date().toString(),
+      'Page: '+location.href,
+      'Secure (HTTPS): '+(window.isSecureContext?'yes':'no'),
+      'Browser: '+navigator.userAgent,
+      'Platform: '+(navigator.platform||'?'),
+      'Screen: '+screen.width+'x'+screen.height+' @'+(window.devicePixelRatio||1).toFixed(2)+'x, viewport '+window.innerWidth+'x'+window.innerHeight,
+      'Camera: '+(state.hasCam?'on':'off'),
+      'GPS: '+(state.hasGps?('on, ±'+(state.acc==null?'?':Math.round(state.acc))+'m'):'off'),
+      'Compass: '+(state.hasCmp?('on ('+(state.headingSrc||'?')+')'):'off / not detected'),
+      'Data: '+sites.length+' sites, '+stations.length+' stations, '+photos.length+' photos'
+    ].join(nl);
+    const href='mailto:'+FEEDBACK_TO
+      +'?subject='+encodeURIComponent('Ghostframe beta feedback ('+APP_VERSION+')')
+      +'&body='+encodeURIComponent(body);
+    location.href=href;
+  }
+
   // ================= WIRE UP =================
   $('#startBtn').addEventListener('click', startAll);
   $('#calibX').addEventListener('click', ()=>{ calibDismissed=true; $('#calibHint').classList.remove('show'); });
+  $('#fbBtn').addEventListener('click', sendFeedback);
+  $('#fbBtn2').addEventListener('click', sendFeedback);
   $('#addSite').addEventListener('click', addSite);
   $('#addStation').addEventListener('click', addStation);
   $('#capBaseline').addEventListener('click', ()=>capture('baseline'));
@@ -750,6 +788,8 @@
   $('#wipe').addEventListener('click', wipeAll);
 
   // ================= INIT =================
+  $('#gatever').textContent='Ghostframe '+APP_VERSION;
+  $('#beta').title='Ghostframe '+APP_VERSION;
   refreshSelectors();
   $('#ghostSlider').value=settings.ghost||0;
   updateReadouts();
