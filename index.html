@@ -122,6 +122,13 @@
   .capbtns button:disabled{opacity:.4;filter:grayscale(1)}
   .stationbar{display:flex;gap:6px;align-items:center;font-family:var(--mono);font-size:12px}
   .stationbar select{flex:1;min-width:0}
+  /* nearest-station suggestion */
+  .suggestrow{display:flex;gap:6px}
+  .suggestrow .suggestuse{flex:1;text-align:left;background:#0d1a26;border:1px solid var(--target);
+    color:var(--fg);border-radius:10px;padding:9px 10px;font:600 13px var(--sans)}
+  .suggestrow .suggestuse b{font-family:var(--mono);color:var(--target)}
+  .suggestrow .suggestx{flex:0 0 38px;border:1px solid var(--line);background:var(--panel);
+    color:var(--muted);border-radius:10px;font:800 13px var(--sans)}
 
   /* ---------- SHARED FORMS ---------- */
   .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px;
@@ -241,6 +248,10 @@
     </div>
 
     <div class="controls">
+      <div class="suggestrow" id="suggestRow" style="display:none">
+        <button class="suggestuse" id="suggestUse"></button>
+        <button class="suggestx" id="suggestX" aria-label="Dismiss suggestion">✕</button>
+      </div>
       <div class="stationbar">
         <select id="quickSite" class="mono" title="Site"></select>
         <select id="quickStation" class="mono" title="Station"></select>
@@ -343,7 +354,7 @@
 <script>
 "use strict";
 (function(){
-  const APP_VERSION='v0.9.1-beta';
+  const APP_VERSION='v0.10.0-beta';
   const FEEDBACK_TO='ohjoehaber@hotmail.com';
   // ---------------- storage ----------------
   const LS = {
@@ -387,6 +398,10 @@
   const $=s=>document.querySelector(s);
   const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const pad2=n=>String(n).padStart(2,'0');
+  const distM=(la1,lo1,la2,lo2)=>{ const r=Math.PI/180,R=6371000;
+    const a=Math.sin((la2-la1)*r/2)**2 + Math.cos(la1*r)*Math.cos(la2*r)*Math.sin((lo2-lo1)*r/2)**2;
+    return 2*R*Math.asin(Math.sqrt(a)); };
   function toast(msg,err){ const t=$('#toast'); t.textContent=msg; t.className='toast show'+(err?' err':'');
     clearTimeout(toast._t); toast._t=setTimeout(()=>t.className='toast',1800); }
   const siteById=id=>sites.find(s=>s.id===id);
@@ -412,7 +427,7 @@
     if(!navigator.geolocation){ setPill('gps',false,true); return; }
     navigator.geolocation.watchPosition(p=>{
       state.lat=p.coords.latitude; state.lon=p.coords.longitude; state.acc=p.coords.accuracy;
-      state.hasGps=true; setPill('gps',true); updateReadouts();
+      state.hasGps=true; setPill('gps',true); updateReadouts(); updateSuggest();
     }, err=>{ setPill('gps',false,true); }, {enableHighAccuracy:true,maximumAge:2000,timeout:15000});
   }
   let absOK=false;                       // true once a true-north (absolute) heading has arrived
@@ -519,8 +534,53 @@
   }
 
   // ================= CAPTURE =================
+  // ---------------- capture-first stations ----------------
+  let suggestDismissedFor=null;
+  function autoCreateStation(){
+    let siteId=settings.currentSite;
+    if(!siteId || !siteById(siteId)){
+      let site=sites.find(s=>s.auto);
+      if(!site){ site={id:uid(),name:'Unsorted',structureType:'Other',watershed:'',auto:true,
+        createdAt:new Date().toISOString()}; sites.push(site); saveSites(); }
+      siteId=site.id; settings.currentSite=siteId;
+    }
+    const codes=new Set(stations.filter(s=>s.siteId===siteId).map(s=>s.code));
+    let n=1; while(codes.has('PS-'+pad2(n))) n++;
+    const st={ id:uid(), siteId, code:'PS-'+pad2(n),
+      targetHeading: state.heading==null?null:Math.round(state.heading)%360,
+      note:'', lat:state.lat, lon:state.lon, createdAt:new Date().toISOString() };
+    stations.push(st); saveStations();
+    settings.currentStation=st.id; saveSettings();
+    refreshSelectors();
+    toast('New station '+st.code);
+    return true;
+  }
+  function nearestStation(){
+    if(state.lat==null) return null;
+    let best=null;
+    for(const s of stations){
+      if(s.lat==null||s.lon==null) continue;
+      const d=distM(state.lat,state.lon,s.lat,s.lon);
+      if(!best||d<best.d) best={st:s,d};
+    }
+    return best;
+  }
+  function updateSuggest(){
+    const row=$('#suggestRow'); if(!row) return;
+    const near=nearestStation();
+    if(!near || near.d>35 || near.st.id===settings.currentStation || suggestDismissedFor===near.st.id){
+      row.style.display='none'; return;
+    }
+    row.dataset.st=near.st.id;
+    $('#suggestUse').innerHTML='📍 <b>'+esc(near.st.code)+'</b> is '+Math.round(near.d)+' m away — tap to use';
+    row.style.display='flex';
+  }
+
   async function capture(type){
-    if(!state.currentReady()){ toast('Pick a site & station first',true); go('sites'); return; }
+    if(!state.currentReady()){
+      if(type==='baseline'){ if(!autoCreateStation()) return; }
+      else { toast('No station yet — shoot a BASELINE first',true); return; }
+    }
     const v=$('#video');
     if(!v.videoWidth){ toast('Camera not ready',true); return; }
     const c=$('#capCanvas'); c.width=v.videoWidth; c.height=v.videoHeight;
@@ -539,6 +599,12 @@
       level: state.roll==null?null:(Math.abs(state.roll)<=5) };
     try{ await imgPut(id,dataURL); }catch(e){ toast('Could not save image',true); return; }
     photos.unshift(meta); savePhotos();
+    if(type==='baseline' && st){
+      let ch=false;
+      if(st.targetHeading==null && meta.heading!=null){ st.targetHeading=Math.round(meta.heading)%360; ch=true; }
+      if(st.lat==null && meta.lat!=null){ st.lat=meta.lat; st.lon=meta.lon; ch=true; }
+      if(ch){ saveStations(); refreshSelectors(); }
+    }
     toast(type==='baseline'?'Baseline captured':'Repeat captured');
     if(type==='baseline') loadGhostForStation(settings.currentStation);
     if($('#view-gallery').classList.contains('active')) renderGallery();
@@ -658,9 +724,21 @@
     else if(sites.length){ settings.currentSite=sites[0].id; qs.value=settings.currentSite; }
 
     const qst=$('#quickStation');
-    const sts=stations.filter(s=>s.siteId===settings.currentSite);
-    qst.innerHTML=sts.length?sts.map(s=>`<option value="${s.id}">${esc(s.code)}</option>`).join('')
-      :'<option value="">— no stations —</option>';
+    let sts=stations.filter(s=>s.siteId===settings.currentSite);
+    if(state.lat!=null){
+      sts=sts.slice().sort((a,b)=>{
+        const da=a.lat==null?1e12:distM(state.lat,state.lon,a.lat,a.lon);
+        const db=b.lat==null?1e12:distM(state.lat,state.lon,b.lat,b.lon);
+        return da-db;
+      });
+    }
+    const stOpt=s=>{
+      let l=esc(s.code);
+      if(state.lat!=null&&s.lat!=null) l+=' · '+Math.round(distM(state.lat,state.lon,s.lat,s.lon))+'m';
+      return `<option value="${s.id}">${l}</option>`;
+    };
+    qst.innerHTML=(sts.length?sts.map(stOpt).join(''):'<option value="">— no stations —</option>')
+      +'<option value="__new">➕ new station here</option>';
     if(settings.currentStation && sts.some(s=>s.id===settings.currentStation)) qst.value=settings.currentStation;
     else { settings.currentStation=sts[0]?sts[0].id:null; if(settings.currentStation) qst.value=settings.currentStation; }
     saveSettings();
@@ -676,7 +754,7 @@
     const s=siteById(settings.currentSite), st=stationById(settings.currentStation);
     $('#ctx').innerHTML=(s?'<b>'+esc(s.name)+'</b>':'no site')+'<br>'+(st?esc(st.code)+(st.targetHeading!=null?' · tgt '+st.targetHeading+'°':''):'no station');
     const ready=state.currentReady();
-    $('#capBaseline').disabled=!ready; $('#capRepeat').disabled=!ready;
+    $('#capBaseline').disabled=false; $('#capRepeat').disabled=!ready;
   }
 
   // ================= GALLERY =================
@@ -790,8 +868,18 @@
     $('#ghostSlider').value=0; settings.ghost=0; saveSettings(); });
   $('#quickSite').addEventListener('change', e=>{ settings.currentSite=e.target.value; settings.currentStation=null;
     saveSettings(); refreshSelectors(); });
-  $('#quickStation').addEventListener('change', e=>{ settings.currentStation=e.target.value; saveSettings();
-    updateCtx(); updateOverlays(); });
+  $('#quickStation').addEventListener('change', e=>{
+    if(e.target.value==='__new'){ autoCreateStation(); return; }
+    settings.currentStation=e.target.value; saveSettings();
+    updateCtx(); updateOverlays(); updateSuggest(); });
+  $('#suggestUse').addEventListener('click', ()=>{
+    const st=stationById($('#suggestRow').dataset.st); if(!st) return;
+    settings.currentSite=st.siteId; settings.currentStation=st.id; saveSettings();
+    refreshSelectors(); $('#suggestRow').style.display='none';
+    if(photos.some(p=>p.stationId===st.id&&p.type==='baseline')) loadGhostForStation(st.id);
+    else toast('Active: '+st.code); });
+  $('#suggestX').addEventListener('click', ()=>{
+    suggestDismissedFor=$('#suggestRow').dataset.st; $('#suggestRow').style.display='none'; });
   $('#galSite').addEventListener('change', renderGallery);
   $('#galType').addEventListener('change', renderGallery);
   $('#expCsv').addEventListener('click', exportCsv);

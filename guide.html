@@ -94,48 +94,40 @@
     </ul>
   </section>
 
-  <h2><span class="n">2</span> Build your sites &amp; stations <span class="once">ONCE / POINT</span></h2>
+  <h2><span class="n">2</span> First visit — just shoot the BASELINE</h2>
   <section class="step">
-    <p>On the <b>Sites</b> tab:</p>
     <ul>
-      <li><b>New monitoring site</b> → name it, pick structure type
-      (<code>BDA</code> / <code>PALS</code> / <code>BDA+PALS</code> /
-      <code>Reference reach</code>), add the watershed (HUC or name). <b>Add site.</b></li>
-      <li><b>Add photo station</b> → choose the site, give a <b>station code</b>
-      (e.g. <code>PS-01</code>), a <b>target heading</b> in degrees (the compass bearing you
-      shoot along), and a <b>placement note</b> (rebar pin, tripod scuff, framing cue).
-      <b>Add station.</b></li>
-      <li>Each station has a <b>Use</b> button — tap it to make that station active and jump
-      to the camera.</li>
+      <li>No setup needed. Frame with the <b>rule-of-thirds grid</b>, keep the
+      <b>level bar green</b> (within ~5° — no sideways tilt), and tap
+      <b>Capture BASELINE</b>.</li>
+      <li>Ghostframe creates the station for you — auto-code (<code>PS-01</code>,
+      <code>PS-02</code>…), your <b>compass heading</b> saved as the target, your
+      <b>GPS fix</b> saved as its location (the header confirms, e.g.
+      <span class="k">PS-01 · tgt 210°</span>).</li>
+      <li>Shooting a second photo point at the same visit? Pick
+      <b>➕ new station here</b> in the station dropdown, then capture.</li>
+      <li>Rename stations, add a <b>placement note</b> (rebar pin, tripod scuff, framing
+      cue), or set up sites/watersheds properly later on the <b>Sites</b> tab — from the
+      truck, not the creek.</li>
     </ul>
-    <p class="lead">Setup lives on that phone only — set up each phone, or share the station
-    codes &amp; headings so everyone matches.</p>
+    <p class="lead">Setup lives on that phone only — the phone that shoots the baseline owns
+    that station's ghost.</p>
   </section>
 
-  <h2><span class="n">3</span> First visit — shoot the BASELINE</h2>
+  <h2><span class="n">3</span> Return visits — line up the REPEAT</h2>
   <section class="step">
     <ul>
-      <li>Pick your <b>site</b> and <b>station</b> in the two dropdowns (the header confirms
-      e.g. <span class="k">PS-01 · tgt 210°</span>).</li>
-      <li>Frame with the <b>rule-of-thirds grid</b>. Rotate until the compass reading
-      (<b>HDG</b>) matches the station's <b>TGT</b>, and keep the <b>level bar green</b>
-      (within ~5° — no sideways tilt).</li>
-      <li>Tap <b>Capture BASELINE</b>. It saves the photo plus timestamp, GPS, heading and tilt.</li>
-    </ul>
-  </section>
-
-  <h2><span class="n">4</span> Return visits — line up the REPEAT</h2>
-  <section class="step">
-    <ul>
-      <li>Same site/station. Tap the <b>Baseline</b> button by the ghost slider — the old
-      baseline fades in over the live view.</li>
+      <li>Walk to the photo point. Ghostframe checks your GPS and offers the closest
+      station — <span class="k">📍 PS-01 is 8 m away — tap to use</span>. Tap it and the
+      baseline ghost loads automatically. (The station dropdown also sorts by distance,
+      e.g. <span class="k">PS-01 · 8m</span>.)</li>
       <li>Slide <b>GHOST</b> to about 50% and physically move until the live scene overlaps
-      the ghost (banks, boulders, the structure).</li>
+      the ghost (banks, boulders, the structure). Match <b>HDG</b> to <b>TGT</b>.</li>
       <li>Level green, heading on target → tap <b>Capture REPEAT</b>.</li>
     </ul>
   </section>
 
-  <h2><span class="n">5</span> Review &amp; hand off the data</h2>
+  <h2><span class="n">4</span> Review &amp; hand off the data</h2>
   <section class="step">
     <p>On the <b>Gallery</b> tab: filter by site or by baseline/repeat; each card shows
     station, date, heading, tilt and GPS.</p>
@@ -187,7 +179,7 @@
   </div>
 
   <footer>
-    Ghostframe <b>v0.9.1-beta</b> · single-file web app · data stored locally on device
+    Ghostframe <b>v0.10.0-beta</b> · single-file web app · data stored locally on device
     (localStorage + IndexedDB) · <a href="./">open the app</a>
   </footer>
 </div>
