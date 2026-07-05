@@ -343,7 +343,7 @@
 <script>
 "use strict";
 (function(){
-  const APP_VERSION='v0.9.0-beta';
+  const APP_VERSION='v0.9.1-beta';
   const FEEDBACK_TO='ohjoehaber@hotmail.com';
   // ---------------- storage ----------------
   const LS = {
@@ -415,13 +415,22 @@
       state.hasGps=true; setPill('gps',true); updateReadouts();
     }, err=>{ setPill('gps',false,true); }, {enableHighAccuracy:true,maximumAge:2000,timeout:15000});
   }
+  let absOK=false;                       // true once a true-north (absolute) heading has arrived
+  const cmpDiag={abs:false, rel:false};  // which orientation streams we've actually seen (for feedback)
   function onOrient(e){
+    // iOS gives true north directly; Android gives it via the 'deviceorientationabsolute' event (or absolute:true).
+    const isAbs = e.type==='deviceorientationabsolute' || e.absolute===true;
     let h=null,src=null;
-    if(typeof e.webkitCompassHeading==='number' && !isNaN(e.webkitCompassHeading)){ h=e.webkitCompassHeading; src='true'; }
-    else if(e.absolute && typeof e.alpha==='number'){ h=(360-e.alpha)%360; src='true'; }
-    else if(typeof e.alpha==='number'){ h=(360-e.alpha)%360; src='rel'; }
+    if(typeof e.webkitCompassHeading==='number' && !isNaN(e.webkitCompassHeading)){
+      h=e.webkitCompassHeading; src='true'; absOK=true; cmpDiag.abs=true;      // iOS
+    } else if(isAbs && typeof e.alpha==='number'){
+      h=(360-e.alpha)%360; src='true'; absOK=true; cmpDiag.abs=true;           // Android absolute (magnetometer-fused)
+    } else if(typeof e.alpha==='number'){
+      cmpDiag.rel=true;
+      if(!absOK){ h=(360-e.alpha)%360; src='rel'; }                            // relative — only if no absolute source exists
+    }
     if(h!==null){ state.heading=(h+360)%360; state.headingSrc=src; state.hasCmp=true; setPill('cmp',true); }
-    if(typeof e.beta==='number') state.pitch=e.beta;
+    if(typeof e.beta==='number') state.pitch=e.beta;                            // tilt comes from any event
     if(typeof e.gamma==='number') state.roll=e.gamma;
     updateOverlays();
   }
@@ -497,9 +506,9 @@
     if(calibDismissed){ el.classList.remove('show'); return; }
     let msg=null;
     if(state.headingSrc==='rel'){
-      msg='Compass isn’t locked to <b>true north</b> (rel). Wave the phone in a <b>figure-8, away from metal</b> to recalibrate.';
+      msg='Compass can’t find <b>true north</b> yet — move the phone in a slow <b>figure-8, away from metal &amp; vehicles</b>, for ~10s. On Android use <b>Chrome with Location on</b>.';
     } else if(!state.hasCmp && (Date.now()-state.startedAt)>4000){
-      msg='Compass not responding. Allow motion access, then wave the phone in a <b>figure-8 away from metal</b>.';
+      msg='Compass not responding. Allow motion access, then move the phone in a <b>figure-8 away from metal</b>.';
     }
     if(msg){ $('#calibMsg').innerHTML=msg; el.classList.add('show'); }
     else el.classList.remove('show');
@@ -756,6 +765,8 @@
       'Camera: '+(state.hasCam?'on':'off'),
       'GPS: '+(state.hasGps?('on, ±'+(state.acc==null?'?':Math.round(state.acc))+'m'):'off'),
       'Compass: '+(state.hasCmp?('on ('+(state.headingSrc||'?')+')'):'off / not detected'),
+      'Orientation streams: absolute='+cmpDiag.abs+', relative='+cmpDiag.rel,
+      'Sensor support: deviceorientationabsolute='+('ondeviceorientationabsolute' in window)+', AbsoluteOrientationSensor='+(typeof window.AbsoluteOrientationSensor!=='undefined'),
       'Data: '+sites.length+' sites, '+stations.length+' stations, '+photos.length+' photos'
     ].join(nl);
     const href='mailto:'+FEEDBACK_TO
