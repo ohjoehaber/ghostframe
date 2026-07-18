@@ -172,6 +172,10 @@
   .ph .cap b{color:var(--fg)}
   .ph .del{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:6px;border:none;
     background:rgba(0,0,0,.6);color:var(--bad);font-weight:900;line-height:1}
+  .ph .save{position:absolute;top:92px;right:4px;width:22px;height:22px;border-radius:6px;border:none;
+    background:rgba(0,0,0,.6);color:var(--accent);font-weight:900;line-height:1}
+  #zipMsg{display:none;margin:-4px 0 10px;padding:8px 10px;border:1px solid var(--warn);border-radius:8px;
+    color:var(--warn);font-size:12px;line-height:1.4;background:rgba(255,176,32,.08)}
 
   /* ---------- NAV ---------- */
   nav{display:flex;background:var(--panel2);border-top:1px solid var(--line);
@@ -334,8 +338,10 @@
       <div class="galtools">
         <button class="btn sec" id="expCsv">Export CSV</button>
         <button class="btn sec" id="expJson">Export JSON</button>
+        <button class="btn sec" id="expZip">Download Photos (ZIP)</button>
         <button class="btn danger" id="wipe">Erase all</button>
       </div>
+      <div id="zipMsg"></div>
       <div id="galCount" class="empty" style="padding:4px 0"></div>
       <div class="grid" id="galGrid"></div>
     </div>
@@ -354,7 +360,7 @@
 <script>
 "use strict";
 (function(){
-  const APP_VERSION='v0.10.0-beta';
+  const APP_VERSION='v0.11.0-beta';
   const FEEDBACK_TO='ohjoehaber@hotmail.com';
   // ---------------- storage ----------------
   const LS = {
@@ -773,6 +779,7 @@
         <img loading="lazy" alt="">
         <span class="tag ${p.type}">${p.type.toUpperCase()}</span>
         <button class="del" data-del="${p.id}">×</button>
+        <button class="save" data-save="${p.id}" title="Save this photo">⬇</button>
         <div class="cap"><b>${esc(p.stationCode||'—')}</b> · ${esc(p.siteName||'')}<br>
           ${when}<br>HDG ${p.heading==null?'--':Math.round(p.heading)+'°'} · TILT ${p.roll==null?'--':Math.round(p.roll)+'°'}<br>
           ${p.lat==null?'no GPS':p.lat.toFixed(5)+', '+p.lon.toFixed(5)}</div>
@@ -782,6 +789,7 @@
       e.stopPropagation();
       if(!confirm('Delete this photo?')) return;
       await imgDel(b.dataset.del); photos=photos.filter(p=>p.id!==b.dataset.del); savePhotos(); renderGallery(); });
+    grid.querySelectorAll('[data-save]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); savePhoto(b.dataset.save); });
     // lazy load images from IDB
     for(const el of grid.querySelectorAll('.ph')){
       const id=el.dataset.id; const data=await imgGet(id);
@@ -808,10 +816,74 @@
       sites, stations, photos };
     download('ltpbr-export-'+stamp()+'.json', JSON.stringify(out,null,2), 'application/json');
   }
-  function download(name,text,mime){
-    const blob=new Blob([text],{type:mime}); const url=URL.createObjectURL(blob);
+  function downloadBlob(name,blob){
+    const url=URL.createObjectURL(blob);
     const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click();
-    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('Exported '+name);
+    a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000); toast('Saved '+name);
+  }
+  function download(name,text,mime){ downloadBlob(name,new Blob([text],{type:mime})); }
+
+  // ---------------- photo file export ----------------
+  const cleanPart=s=>String(s==null?'':s).replace(/[^A-Za-z0-9-]+/g,'-').replace(/^-+|-+$/g,'');
+  function photoFilename(p){
+    const site=cleanPart(p.siteName)||'site';
+    const stn=cleanPart(p.stationCode)||'nostation';
+    const date=(p.timestamp||'').slice(0,10)||'nodate';
+    const time=(p.timestamp||'').slice(11,16).replace(':','');
+    return (p.type==='baseline'?'BASELINE_':'')+site+'_'+stn+'_'+date+(time?'_'+time:'')+'.jpg';
+  }
+  function uniqueName(used,name){
+    if(!used.has(name)){ used.add(name); return name; }
+    const dot=name.lastIndexOf('.'); const stem=name.slice(0,dot), ext=name.slice(dot);
+    let i=2; while(used.has(stem+'-'+i+ext)) i++;
+    used.add(stem+'-'+i+ext); return stem+'-'+i+ext;
+  }
+  function dataUrlToBlob(dataUrl){
+    const parts=dataUrl.split(','); const mime=(parts[0].match(/:(.*?);/)||[])[1]||'image/jpeg';
+    const bin=atob(parts[1]); let n=bin.length; const arr=new Uint8Array(n);
+    while(n--) arr[n]=bin.charCodeAt(n);
+    return new Blob([arr],{type:mime});
+  }
+  async function savePhoto(id){
+    const p=photos.find(x=>x.id===id); if(!p){ toast('Photo not found',true); return; }
+    const data=await imgGet(id);
+    if(!data){ toast('Image missing from storage',true); return; }
+    downloadBlob(photoFilename(p), dataUrlToBlob(data));
+  }
+  function ensureJSZip(cb){
+    if(window.JSZip){ cb(true); return; }
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+    s.onload=()=>cb(!!window.JSZip); s.onerror=()=>cb(false);
+    document.head.appendChild(s);
+  }
+  function exportZip(){
+    const fSite=$('#galSite').value;
+    const list=fSite?photos.filter(p=>p.siteId===fSite):photos.slice();
+    if(!list.length){ toast('No photos to export',true); return; }
+    const btn=$('#expZip'), msg=$('#zipMsg');
+    btn.disabled=true; const orig=btn.textContent; btn.textContent='Zipping…'; msg.style.display='none';
+    ensureJSZip(async ok=>{
+      if(!ok){
+        btn.disabled=false; btn.textContent=orig;
+        msg.textContent='ZIP export needs an internet connection the first time (it fetches the zip library) — after that it works offline. Meanwhile, the ⬇ button on each photo always works offline.';
+        msg.style.display='block';
+        return;
+      }
+      try{
+        const zip=new JSZip(); const used=new Set(); let missing=0;
+        for(const p of list){
+          const data=await imgGet(p.id);
+          if(!data){ missing++; continue; }
+          zip.file(uniqueName(used,photoFilename(p)), data.split(',')[1], {base64:true});
+        }
+        const siteName=fSite?(cleanPart((siteById(fSite)||{}).name)||'site'):'all-sites';
+        const blob=await zip.generateAsync({type:'blob'});
+        downloadBlob('ltpbr_'+siteName+'_'+stamp()+'.zip', blob);
+        if(missing) toast(missing+' photo(s) had no stored image — skipped',true);
+      }catch(e){ toast('ZIP failed: '+(e.message||e),true); }
+      btn.disabled=false; btn.textContent=orig;
+    });
   }
   const stamp=()=>new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
 
@@ -883,6 +955,7 @@
   $('#galSite').addEventListener('change', renderGallery);
   $('#galType').addEventListener('change', renderGallery);
   $('#expCsv').addEventListener('click', exportCsv);
+  $('#expZip').addEventListener('click', exportZip);
   $('#expJson').addEventListener('click', exportJson);
   $('#wipe').addEventListener('click', wipeAll);
 

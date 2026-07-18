@@ -132,9 +132,19 @@
     <p>On the <b>Gallery</b> tab: filter by site or by baseline/repeat; each card shows
     station, date, heading, tilt and GPS.</p>
     <ul>
+      <li><b>⬇ on any photo</b> — saves that single JPEG to your phone. Always works,
+      including fully offline.</li>
+      <li><b>Download Photos (ZIP)</b> — bundles every photo for the site selected in the
+      filter (or all sites) into one ZIP. Needs an internet connection the <b>first</b> time
+      you use it (it fetches the zip library); after that it works offline too.</li>
       <li><b>Export CSV</b> — metadata table for the spreadsheet.</li>
       <li><b>Export JSON</b> — full backup including sites &amp; stations.</li>
     </ul>
+    <p class="lead">Saved photos are named
+    <span class="k">Site_Station_Date_Time.jpg</span> — e.g.
+    <span class="k">WaltersCk_PS-01_2026-07-16_1423.jpg</span> — with baselines prefixed
+    <span class="k">BASELINE_</span>, so files sort by point and join back to the CSV by
+    station code. Duplicate names get a numeric suffix instead of overwriting.</p>
   </section>
 
   <div class="callout bad">
@@ -172,16 +182,16 @@
   </div>
 
   <div class="callout">
-    <h3>🧪 This is a beta — what to test this round (v0.10.0)</h3>
+    <h3>🧪 This is a beta — what to test this round (v0.11.0)</h3>
     <ul style="margin:4px 0">
-      <li><b>First: pull-to-refresh</b> the app page so you're on <b>v0.10.0-beta</b>
+      <li><b>First: pull-to-refresh</b> the app page so you're on <b>v0.11.0-beta</b>
       (version shows on the start screen).</li>
-      <li><b>Android users:</b> start sensors and check the heading locks to true north —
-      no <span class="k">rel</span> tag next to HDG. If <span class="k">rel</span> shows,
-      does the figure-8 wave clear it now?</li>
-      <li><b>Everyone:</b> tap <b>Capture BASELINE</b> cold, with nothing set up — a
-      station should create itself. Then walk ~50 m away and back: the
-      <span class="k">📍 … m away</span> bar should offer the station.</li>
+      <li><b>Android users (still open):</b> check the heading locks to true north — no
+      <span class="k">rel</span> tag next to HDG — and whether the figure-8 wave clears
+      it if it shows.</li>
+      <li><b>Everyone:</b> in the Gallery, tap <b>⬇</b> on a photo (should save one JPEG),
+      then try <b>Download Photos (ZIP)</b> — first use needs signal, then it's offline.
+      Check the filenames look like <span class="k">Site_PS-01_date_time.jpg</span>.</li>
     </ul>
     Report via the <b>✉ button</b> in the app header (or <b>Report a problem</b> on the
     start screen) — it pre-fills an email with your device details, so even
@@ -189,7 +199,7 @@
   </div>
 
   <footer>
-    Ghostframe <b>v0.10.0-beta</b> · single-file web app · data stored locally on device
+    Ghostframe <b>v0.11.0-beta</b> · single-file web app · data stored locally on device
     (localStorage + IndexedDB) · <a href="./">open the app</a>
   </footer>
 </div>
