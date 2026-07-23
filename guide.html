@@ -79,8 +79,18 @@
   <button class="printbtn" onclick="window.print()">🖨 Print / Save as PDF</button>
 
   <p><b>Open it:</b> load the link on your phone's browser, then <b>Share → Add to Home
-  Screen</b> so it launches like an app. The camera, compass and tilt only work over the
+  Screen</b> (Install app on Android). The camera, compass and tilt only work over the
   live web link — a downloaded copy of the file has dead sensors.</p>
+
+  <div class="callout">
+    <h3>📴 Works offline — install it once, on signal</h3>
+    Ghostframe now installs like a real app. The <b>first</b> time you open it with a
+    connection it saves itself to the phone; after that it <b>launches and runs with no
+    signal</b> — cached at startup, so it opens instantly in a dead zone and won't drop out
+    while you switch between other apps. Your sites, stations and photos are stored on the
+    device. <b>Do it once on wi-fi/signal before heading out.</b> When an update ships,
+    open it on signal once and it refreshes in the background (reload to apply).
+  </div>
 
   <h2><span class="n">1</span> Start the sensors <span class="once">ONCE / SESSION</span></h2>
   <section class="step">
@@ -137,6 +147,8 @@
       <li><b>Download Photos (ZIP)</b> — bundles every photo for the site selected in the
       filter (or all sites) into one ZIP. Needs an internet connection the <b>first</b> time
       you use it (it fetches the zip library); after that it works offline too.</li>
+      <li><b>Select → ZIP selected</b> — tap <b>Select</b>, tap the photos you want, then
+      <b>ZIP selected</b> to download just those.</li>
       <li><b>Export CSV</b> — metadata table for the spreadsheet.</li>
       <li><b>Export JSON</b> — full backup including sites &amp; stations.</li>
     </ul>
@@ -182,16 +194,17 @@
   </div>
 
   <div class="callout">
-    <h3>🧪 This is a beta — what to test this round (v0.11.0)</h3>
+    <h3>🧪 This is a beta — what to test this round (v0.12.0)</h3>
     <ul style="margin:4px 0">
-      <li><b>First: pull-to-refresh</b> the app page so you're on <b>v0.11.0-beta</b>
-      (version shows on the start screen).</li>
+      <li><b>First: pull-to-refresh</b> on signal so you're on <b>v0.12.0-beta</b>
+      (version shows on the start screen), then <b>Add to Home Screen / Install</b>.</li>
+      <li><b>Offline test (the big one):</b> after installing, turn on airplane mode and
+      open Ghostframe from the home-screen icon — it should launch and work with no signal.</li>
+      <li><b>Selective export:</b> in the Gallery tap <b>Select</b>, tap a few photos, then
+      <b>ZIP selected</b>. Also try <b>⬇</b> on a single photo. Filenames should look like
+      <span class="k">Site_PS-01_date_time.jpg</span>.</li>
       <li><b>Android users (still open):</b> check the heading locks to true north — no
-      <span class="k">rel</span> tag next to HDG — and whether the figure-8 wave clears
-      it if it shows.</li>
-      <li><b>Everyone:</b> in the Gallery, tap <b>⬇</b> on a photo (should save one JPEG),
-      then try <b>Download Photos (ZIP)</b> — first use needs signal, then it's offline.
-      Check the filenames look like <span class="k">Site_PS-01_date_time.jpg</span>.</li>
+      <span class="k">rel</span> tag next to HDG.</li>
     </ul>
     Report via the <b>✉ button</b> in the app header (or <b>Report a problem</b> on the
     start screen) — it pre-fills an email with your device details, so even
@@ -199,7 +212,7 @@
   </div>
 
   <footer>
-    Ghostframe <b>v0.11.0-beta</b> · single-file web app · data stored locally on device
+    Ghostframe <b>v0.12.0-beta</b> · installable offline web app · data stored locally on device
     (localStorage + IndexedDB) · <a href="./">open the app</a>
   </footer>
 </div>

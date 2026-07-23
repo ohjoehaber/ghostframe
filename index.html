@@ -4,6 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#0b0f0d">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ghostframe">
 <title>Ghostframe — LTPBR Repeat Photo</title>
 <style>
   :root{
@@ -174,6 +180,12 @@
     background:rgba(0,0,0,.6);color:var(--bad);font-weight:900;line-height:1}
   .ph .save{position:absolute;top:92px;right:4px;width:22px;height:22px;border-radius:6px;border:none;
     background:rgba(0,0,0,.6);color:var(--accent);font-weight:900;line-height:1}
+  .grid.selmode .ph .del,.grid.selmode .ph .save{display:none}
+  .grid.selmode .ph{cursor:pointer}
+  .ph.sel{outline:3px solid var(--accent);outline-offset:-3px}
+  .ph.sel::after{content:"✓";position:absolute;top:4px;right:4px;width:22px;height:22px;
+    border-radius:6px;background:var(--accent);color:#04150c;font-weight:900;
+    display:flex;align-items:center;justify-content:center}
   #zipMsg{display:none;margin:-4px 0 10px;padding:8px 10px;border:1px solid var(--warn);border-radius:8px;
     color:var(--warn);font-size:12px;line-height:1.4;background:rgba(255,176,32,.08)}
 
@@ -339,6 +351,8 @@
         <button class="btn sec" id="expCsv">Export CSV</button>
         <button class="btn sec" id="expJson">Export JSON</button>
         <button class="btn sec" id="expZip">Download Photos (ZIP)</button>
+        <button class="btn sec" id="selMode">Select</button>
+        <button class="btn" id="expZipSel" style="display:none">ZIP selected (0)</button>
         <button class="btn danger" id="wipe">Erase all</button>
       </div>
       <div id="zipMsg"></div>
@@ -360,7 +374,7 @@
 <script>
 "use strict";
 (function(){
-  const APP_VERSION='v0.11.0-beta';
+  const APP_VERSION='v0.12.0-beta';
   const FEEDBACK_TO='ohjoehaber@hotmail.com';
   // ---------------- storage ----------------
   const LS = {
@@ -790,6 +804,18 @@
       if(!confirm('Delete this photo?')) return;
       await imgDel(b.dataset.del); photos=photos.filter(p=>p.id!==b.dataset.del); savePhotos(); renderGallery(); });
     grid.querySelectorAll('[data-save]').forEach(b=>b.onclick=e=>{ e.stopPropagation(); savePhoto(b.dataset.save); });
+    grid.classList.toggle('selmode',selecting);
+    if(selecting){
+      grid.querySelectorAll('.ph').forEach(el=>{
+        if(selIds.has(el.dataset.id)) el.classList.add('sel');
+        el.onclick=()=>{
+          const id=el.dataset.id;
+          if(selIds.has(id)){ selIds.delete(id); el.classList.remove('sel'); }
+          else { selIds.add(id); el.classList.add('sel'); }
+          updateSelUI();
+        };
+      });
+    }
     // lazy load images from IDB
     for(const el of grid.querySelectorAll('.ph')){
       const id=el.dataset.id; const data=await imgGet(id);
@@ -857,11 +883,9 @@
     s.onload=()=>cb(!!window.JSZip); s.onerror=()=>cb(false);
     document.head.appendChild(s);
   }
-  function exportZip(){
-    const fSite=$('#galSite').value;
-    const list=fSite?photos.filter(p=>p.siteId===fSite):photos.slice();
+  function zipPhotos(list,zipName,btn){
     if(!list.length){ toast('No photos to export',true); return; }
-    const btn=$('#expZip'), msg=$('#zipMsg');
+    const msg=$('#zipMsg');
     btn.disabled=true; const orig=btn.textContent; btn.textContent='Zipping…'; msg.style.display='none';
     ensureJSZip(async ok=>{
       if(!ok){
@@ -877,13 +901,32 @@
           if(!data){ missing++; continue; }
           zip.file(uniqueName(used,photoFilename(p)), data.split(',')[1], {base64:true});
         }
-        const siteName=fSite?(cleanPart((siteById(fSite)||{}).name)||'site'):'all-sites';
         const blob=await zip.generateAsync({type:'blob'});
-        downloadBlob('ltpbr_'+siteName+'_'+stamp()+'.zip', blob);
+        downloadBlob(zipName, blob);
         if(missing) toast(missing+' photo(s) had no stored image — skipped',true);
       }catch(e){ toast('ZIP failed: '+(e.message||e),true); }
       btn.disabled=false; btn.textContent=orig;
     });
+  }
+  function exportZip(){
+    const fSite=$('#galSite').value;
+    const list=fSite?photos.filter(p=>p.siteId===fSite):photos.slice();
+    const siteName=fSite?(cleanPart((siteById(fSite)||{}).name)||'site'):'all-sites';
+    zipPhotos(list,'ltpbr_'+siteName+'_'+stamp()+'.zip',$('#expZip'));
+  }
+  function exportZipSel(){
+    zipPhotos(photos.filter(p=>selIds.has(p.id)),'ltpbr_selected_'+stamp()+'.zip',$('#expZipSel'));
+  }
+  // ---------------- gallery selection mode ----------------
+  let selecting=false; const selIds=new Set();
+  function updateSelUI(){
+    $('#expZipSel').style.display=selecting?'':'none';
+    $('#expZipSel').textContent='ZIP selected ('+selIds.size+')';
+    $('#selMode').textContent=selecting?'Done':'Select';
+  }
+  function toggleSelectMode(){
+    selecting=!selecting; if(!selecting) selIds.clear();
+    updateSelUI(); renderGallery();
   }
   const stamp=()=>new Date().toISOString().replace(/[:T]/g,'-').slice(0,16);
 
@@ -956,10 +999,26 @@
   $('#galType').addEventListener('change', renderGallery);
   $('#expCsv').addEventListener('click', exportCsv);
   $('#expZip').addEventListener('click', exportZip);
+  $('#selMode').addEventListener('click', toggleSelectMode);
+  $('#expZipSel').addEventListener('click', exportZipSel);
   $('#expJson').addEventListener('click', exportJson);
   $('#wipe').addEventListener('click', wipeAll);
 
   // ================= INIT =================
+  // Offline-first PWA: register the service worker and ask the browser not to
+  // evict our storage (photos live in IndexedDB; eviction would lose them).
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').then(reg=>{
+      reg.addEventListener('updatefound',()=>{
+        const nw=reg.installing;
+        if(nw) nw.addEventListener('statechange',()=>{
+          if(nw.state==='installed' && navigator.serviceWorker.controller)
+            toast('Update downloaded — reload to apply');
+        });
+      });
+    }).catch(()=>{});
+  }
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   $('#gatever').textContent='Ghostframe '+APP_VERSION;
   $('#beta').title='Ghostframe '+APP_VERSION;
   refreshSelectors();
